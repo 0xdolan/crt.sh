@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Author: @0xdolan
-# Github: github.com/0xdolan/crt.sh
+# Github: https://github.com/0xdolan/crt.sh
 # Description: A simple python script to interact with crt.sh website to get certificate information
 # Dependencies: requests, rich
 # Date: July 2023
@@ -40,6 +40,38 @@ class Crt:
         except Exception as e:
             console.print(f"[bold red]Error: {e}")
 
+    # Get certificate information from crt.sh and check if it is expired
+    def is_expired(self, cert):
+        not_before = datetime.datetime.strptime(cert["not_before"], "%Y-%m-%dT%H:%M:%S")
+        not_after = datetime.datetime.strptime(cert["not_after"], "%Y-%m-%dT%H:%M:%S")
+        if not_before < datetime.datetime.now() < not_after:
+            return False
+        else:
+            return True
+
+    # Get certificate information from crt.sh between two dates
+    def get_crt_between_dates(self, start_date, end_date):
+        try:
+            response = requests.get(self.url)
+            self.data = response.json()
+            self.result = []
+            for cert in self.data:
+                not_before = datetime.datetime.strptime(
+                    cert["not_before"], "%Y-%m-%dT%H:%M:%S"
+                )
+                not_after = datetime.datetime.strptime(
+                    cert["not_after"], "%Y-%m-%dT%H:%M:%S"
+                )
+                if not_before > start_date and end_date == None:
+                    self.result.append(cert)
+                if not_after < end_date and start_date == None:
+                    self.result.append(cert)
+                if not_before > start_date and not_after < end_date:
+                    self.result.append(cert)
+            return self.result
+        except Exception as e:
+            console.print(f"[bold red]Error: {e}")
+
     # Save result to file in json format
     def save_result(self):
         today = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -69,6 +101,19 @@ def get_args():
         type=int,
         help="Number of certificates to get, default is 0 (all)",
     )
+    parser.add_argument(
+        "-f" "--from",
+        dest="start_date",
+        type=lambda s: datetime.datetime.strptime(s, "%Y-%m-%d"),
+        help="Start date to get certificate information",
+    )
+    parser.add_argument(
+        "-t",
+        "--to",
+        dest="end_date",
+        type=lambda s: datetime.datetime.strptime(s, "%Y-%m-%d"),
+        help="End date to get certificate information",
+    )
 
     parser.add_argument("-j", "--json", action="store_true", help="Save result to file")
     args = parser.parse_args()
@@ -81,6 +126,8 @@ def main():
     domain = args.domain
     number = args.number
     json = args.json
+    start_date = args.start_date
+    end_date = args.end_date
 
     crt = Crt(domain)
     result = crt.get_crt(number)
